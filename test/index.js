@@ -6,42 +6,84 @@ const router = require('../src/index.js');
 describe('gcf-routing', () => {
   let req;
   let res;
-  let handler;
+  let next;
   let send;
 
   beforeEach(() => {
     send = sinon.spy();
     req = {
-      headers: {
-        host: 'hostit',
-      },
-      path: '',
-      originalUrl: '/functionName',
-      baseUrl: '/functionName'
+      path: '/',
     };
     res = {
-      status: sinon.spy(function() {
-        return { send: send }
-      })
+      status: sinon.spy(() => ({ send })),
     };
-    handler = sinon.spy();
+    next = sinon.spy();
   });
 
-  describe('root', () => {
-    it('should match if empty string', () => {
-      const app = router('GET', '', handler);
-      req.originalUrl = '/functionName';
-      req.path = '/';
-      app(req, res);
-      assert(res.status.called, false);
-      assert(send.calledOnce, true);
+  describe('method', () => {
+    it('should send 501 (not implemented) if not matching', () => {
+      req.method = 'POST';
+
+      router('GET', '/', next)(req, res);
+
+      assert(res.status.calledWith(501));
+      assert(send.calledOnce);
     });
 
-    it('should match if single root slash', () => {
-      const app = router('GET', '', handler);
-      app(req, res);
-      assert(res.status.called, false);
-      assert(send.calledOnce, true);
+    it('should call next if matching', () => {
+      req.method = 'GET';
+
+      router('GET', '/', next)(req, res);
+
+      assert(next.calledOnce);
+    });
+
+    it('always matches OPTIONS method', () => {
+      req.method = 'OPTIONS';
+
+      router('GET', '/', next)(req, res);
+
+      assert(next.calledOnce);
+    });
+  });
+
+  describe('path', () => {
+    it('should send 404 if not matching', () => {
+      req.method = 'GET';
+
+      router('GET', '/123', next)(req, res);
+
+      assert(res.status.calledWith(404));
+      assert(send.calledOnce);
+    });
+
+    it('should call next if path matching', () => {
+      req.method = 'GET';
+      req.path = '/123';
+
+      router('GET', '/123', next)(req, res);
+
+      assert(next.calledOnce);
+    });
+
+    it('should call next if path and params match', () => {
+      req.method = 'GET';
+      req.path = '/object/123';
+
+      router('GET', '/object/:id', next)(req, res);
+
+      assert(next.calledOnce);
+    });
+
+    it('should add params to req', () => {
+      req.method = 'GET';
+      req.path = '/object/123';
+
+      router('GET', '/object/:id', next)(req, res);
+
+      assert(next.calledOnce);
+      assert.equal(next.lastCall.args[0].params.id, 123);
+      assert.equal(next.lastCall.args[0].path, '/object/123');
     });
   });
 });

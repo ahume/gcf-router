@@ -1,6 +1,6 @@
 {
   "name": "gcf-routing",
-  "version": "0.0.2",
+  "version": "0.0.7",
   "description": "Method and path/param matching for Google Cloud Functions",
   "main": "src/index.js",
   "directories": {

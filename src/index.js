@@ -1,34 +1,29 @@
 const route = require('path-match')();
 
-function doesNotMatchRootSlash(req, path) {
-  const cloudFunctionPath = req.originalUrl.replace(req.baseUrl, '');
-  return (cloudFunctionPath === '/' && path === '') ||
-    (cloudFunctionPath === '' && path === '/');
-}
+// Allow options on all requests, lets CORS pre-flight through more easily.
+let allowedMethods = ['OPTIONS'];
 
-function router(method, path, handler) {
-  return function app(req, res) {
+const router = (method, path, next) => (req, res) => {
+  allowedMethods = allowedMethods.concat([method]);
 
-    // 501 if not the right method.
-    if (req.method !== method) {
-      return res.status(501).send();
-    }
+  // 501 if not the right method.
+  if (allowedMethods.indexOf(req.method) < 0) {
+    return res.status(501).send();
+  }
 
-    // 404 if single root slash does not match
-    if (doesNotMatchRootSlash(req, path)) {
-      return res.status(404).send();
-    }
+  // req.path is null for root of GCF real, In emulator it is '/'.
+  // This at least makes it consistent.
+  const requestPath = req.path || '/';
 
-    // Otherwise find any params
-    const match = route(path);
-    const params = match(req.path);
+  // Otherwise find any params
+  const match = route(path);
+  const params = match(requestPath);
 
-    if (params === false) {
-      return res.status(404).send();
-    }
+  if (params === false) {
+    return res.status(404).send();
+  }
 
-    return handler(req, res);
-  };
-}
+  return next(Object.assign(req, { params }), res);
+};
 
 module.exports = router;
